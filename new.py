@@ -11,7 +11,7 @@ import pygame
 import time
 import os
 from tkinter import *
-from tkinter import ttk, scrolledtext, messagebox
+from tkinter import ttk, scrolledtext, messagebox, simpledialog
 from PIL import Image, ImageTk
 from dotenv import load_dotenv
 import google.cloud.texttospeech as tts
@@ -121,9 +121,15 @@ class VoiceAssistantGUI:
     def process_voice_input(self):
         self.update_history("System", "Listening...", "#0099ff")
         query = self.recognize_speech()
+        # Update GUI state after processing
+        self.root.after(0, self.set_listening_false)
         if query:
-            self.process_command(query.lower().split())
-        self.toggle_listening()
+            self.root.after(0, self.update_history, "User", query, "#00ff99")
+            self.root.after(0, self.process_command, query.lower().split())
+
+    def set_listening_false(self):
+        self.listening = False
+        self.mic_btn.config(bg='#2d2d2d', activebackground='#404040')
 
     def process_text_input(self, event=None):
         text = self.input_entry.get()
@@ -135,16 +141,23 @@ class VoiceAssistantGUI:
     def recognize_speech(self):
         recognizer = sr.Recognizer()
         with sr.Microphone() as source:
-            try:
-                audio = recognizer.listen(source, timeout=5)
-                return recognizer.recognize_google(audio, language='en_gb')
-            except sr.UnknownValueError:
-                self.update_history("System", "Could not understand audio", "#ff4444")
-            except sr.RequestError as e:
-                self.update_history("System", f"Recognition error: {e}", "#ff4444")
-            except Exception as e:
-                self.update_history("System", f"Error: {e}", "#ff4444")
-        return None
+            recognizer.adjust_for_ambient_noise(source)
+            audio = None
+            while self.listening:
+                try:
+                    # Listen for a short duration to allow checking the listening state
+                    audio = recognizer.listen(source, timeout=0.5, phrase_time_limit=5)
+                    break  # Exit loop if audio captured
+                except sr.WaitTimeoutError:
+                    continue  # Continue listening while self.listening is True
+            if audio:
+                try:
+                    return recognizer.recognize_google(audio, language='en_gb')
+                except sr.UnknownValueError:
+                    self.update_history("System", "Could not understand audio", "#ff4444")
+                except sr.RequestError as e:
+                    self.update_history("System", f"Recognition error: {e}", "#ff4444")
+            return None
 
     def update_history(self, sender, message, color):
         self.history_text.configure(state='normal')
@@ -238,13 +251,32 @@ class VoiceAssistantGUI:
             self.update_history("System", f"Wolfram error: {e}", "#ff4444")
 
     def create_note(self):
-        self.speak("Ready to record your note")
-        note = self.recognize_speech()
-        if note:
-            filename = f"note_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-            with open(filename, 'w') as f:
-                f.write(note)
-            self.speak("Note saved successfully")
+        try:
+            # Ask user if they want to type or speak
+            response = messagebox.askyesno("Note Type", "Type note instead of speaking?")
+            
+            if response:  # Text input
+                note = simpledialog.askstring("Text Note", "Enter your note:")
+                if not note:
+                    return
+            else:  # Voice input
+                self.speak("Ready to record your note")
+                note = self.recognize_speech()
+
+            if note:
+                os.makedirs("notes", exist_ok=True)
+                filename = f"notes/note_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                with open(filename, 'w') as f:
+                    f.write(note)
+                self.speak("Note saved successfully")
+                self.update_history("System", f"Note saved to {filename}", "#00ff99")
+            else:
+                self.speak("No note content detected")
+
+        except Exception as e:
+            self.update_history("System", f"Note error: {str(e)}", "#ff4444")
+            self.speak("Failed to save note")
+    
 
 def google_text_to_wav(voice_name: str, text: str):
     client = tts.TextToSpeechClient()

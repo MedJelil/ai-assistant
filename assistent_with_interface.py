@@ -62,7 +62,7 @@ class VoiceAssistantGUI:
         header_frame.pack(fill=X)
         
         try:
-            self.logo_img = ImageTk.PhotoImage(Image.open("ai_icon.png").resize((60,60)))
+            self.logo_img = ImageTk.PhotoImage(Image.open("./assets/ai_icon.png").resize((60,60)))
             Label(header_frame, image=self.logo_img, bg='#1a1a1a').pack(side=LEFT, padx=5)
         except FileNotFoundError:
             pass
@@ -82,7 +82,7 @@ class VoiceAssistantGUI:
         control_frame = Frame(main_frame, bg='#1a1a1a')
         control_frame.pack(fill=X, pady=5)
         
-        self.mic_img = self.create_icon_button("mic_icon.png")
+        self.mic_img = self.create_icon_button("./assets/mic_icon.png")
         self.mic_btn = Button(control_frame, image=self.mic_img, command=self.toggle_listening,
                              bg='#2d2d2d', activebackground='#404040', bd=0)
         self.mic_btn.pack(side=LEFT, padx=5)

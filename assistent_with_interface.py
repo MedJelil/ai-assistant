@@ -19,16 +19,38 @@ import google.cloud.texttospeech as tts
 # Load environment variables
 load_dotenv()
 
+class ModernButton(Button):
+    def __init__(self, master=None, **kwargs):
+        super().__init__(master, **kwargs)
+        self.config(
+            bg='#2d2d2d',
+            fg='#00ff99',
+            activebackground='#404040',
+            activeforeground='#00ff99',
+            relief=FLAT,
+            font=('Helvetica', 10, 'bold'),
+            padx=15,
+            pady=5
+        )
+        self.bind('<Enter>', self.on_enter)
+        self.bind('<Leave>', self.on_leave)
+
+    def on_enter(self, e):
+        self.config(background='#404040')
+
+    def on_leave(self, e):
+        self.config(background='#2d2d2d')
+
 class VoiceAssistantGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("JELIL - Voice Assistant")
-        self.root.geometry("800x600")
+        self.root.geometry("1000x700")
         self.root.configure(bg='#1a1a1a')
         
         # Configuration
         self.activation_words = ['computer', 'Jelil', 'shodan', 'showdown']
-        self.tts_type = 'local'  # Change to 'google' for cloud TTS
+        self.tts_type = 'local'
         self.appId = '5R49J7-J888YX9J2V'
         self.wolframClient = wolframalpha.Client(self.appId)
         
@@ -53,50 +75,104 @@ class VoiceAssistantGUI:
         webbrowser.register('firefox', None, webbrowser.BackgroundBrowser(firefox_path))
 
     def create_widgets(self):
-        # Main container
+        # Main container with gradient effect
         main_frame = Frame(self.root, bg='#1a1a1a')
-        main_frame.pack(expand=True, fill=BOTH, padx=10, pady=10)
+        main_frame.pack(expand=True, fill=BOTH, padx=20, pady=20)
 
-        # Header
+        # Header with modern design
         header_frame = Frame(main_frame, bg='#1a1a1a')
-        header_frame.pack(fill=X)
+        header_frame.pack(fill=X, pady=(0, 20))
         
         try:
-            self.logo_img = ImageTk.PhotoImage(Image.open("./assets/ai_icon.png").resize((60,60)))
-            Label(header_frame, image=self.logo_img, bg='#1a1a1a').pack(side=LEFT, padx=5)
+            self.logo_img = ImageTk.PhotoImage(Image.open("./assets/ai_icon.png").resize((80,80)))
+            logo_label = Label(header_frame, image=self.logo_img, bg='#1a1a1a')
+            logo_label.pack(side=LEFT, padx=10)
         except FileNotFoundError:
             pass
         
-        Label(header_frame, text="JELIL", font=('Impact', 28), 
-             fg='#00ff99', bg='#1a1a1a').pack(side=LEFT, padx=10)
+        title_frame = Frame(header_frame, bg='#1a1a1a')
+        title_frame.pack(side=LEFT, padx=10)
+        
+        Label(title_frame, text="JELIL", font=('Impact', 36), 
+             fg='#00ff99', bg='#1a1a1a').pack(side=LEFT)
+        
+        Label(title_frame, text="AI Assistant", font=('Helvetica', 14),
+             fg='#888888', bg='#1a1a1a').pack(side=LEFT, padx=10)
 
-        # Conversation history
-        self.history_text = scrolledtext.ScrolledText(main_frame, wrap=WORD,
-                                                    font=('Consolas', 12),
-                                                    bg='#000000', fg='#00ff99',
-                                                    insertbackground='white')
-        self.history_text.pack(expand=True, fill=BOTH, pady=10)
+        # Conversation history with modern styling
+        history_frame = Frame(main_frame, bg='#2d2d2d', padx=10, pady=10)
+        history_frame.pack(expand=True, fill=BOTH, pady=(0, 20))
+        
+        self.history_text = scrolledtext.ScrolledText(
+            history_frame,
+            wrap=WORD,
+            font=('Consolas', 12),
+            bg='#1a1a1a',
+            fg='#00ff99',
+            insertbackground='white',
+            padx=10,
+            pady=10
+        )
+        self.history_text.pack(expand=True, fill=BOTH)
         self.history_text.configure(state='disabled')
 
-        # Controls
+        # Controls with modern design
         control_frame = Frame(main_frame, bg='#1a1a1a')
-        control_frame.pack(fill=X, pady=5)
+        control_frame.pack(fill=X, pady=10)
         
+        # Microphone button with modern styling
         self.mic_img = self.create_icon_button("./assets/mic_icon.png")
-        self.mic_btn = Button(control_frame, image=self.mic_img, command=self.toggle_listening,
-                             bg='#2d2d2d', activebackground='#404040', bd=0)
+        self.mic_btn = ModernButton(
+            control_frame,
+            image=self.mic_img,
+            command=self.toggle_listening,
+            width=40,
+            height=40
+        )
         self.mic_btn.pack(side=LEFT, padx=5)
 
-        self.input_entry = ttk.Entry(control_frame, width=50, font=('Arial', 12))
-        self.input_entry.pack(side=LEFT, expand=True, fill=X, padx=5)
+        # Modern entry field
+        entry_frame = Frame(control_frame, bg='#1a1a1a')
+        entry_frame.pack(side=LEFT, expand=True, fill=X, padx=5)
+        
+        self.input_entry = ttk.Entry(
+            entry_frame,
+            width=50,
+            font=('Helvetica', 12),
+            style='Modern.TEntry'
+        )
+        self.input_entry.pack(side=LEFT, expand=True, fill=X)
         self.input_entry.bind('<Return>', self.process_text_input)
 
-        ttk.Button(control_frame, text="Send", command=self.process_text_input).pack(side=LEFT)
+        # Send button with modern styling
+        send_btn = ModernButton(
+            control_frame,
+            text="Send",
+            command=self.process_text_input
+        )
+        send_btn.pack(side=LEFT, padx=5)
 
-        # Status bar
-        self.status_bar = Label(self.root, text="Ready", bd=1, relief=SUNKEN,
-                              anchor=W, fg='#00ff99', bg='#2d2d2d', font=('Arial', 10))
+        # Status bar with modern design
+        self.status_bar = Label(
+            self.root,
+            text="Ready",
+            bd=0,
+            relief=FLAT,
+            anchor=W,
+            fg='#00ff99',
+            bg='#2d2d2d',
+            font=('Helvetica', 10),
+            padx=10,
+            pady=5
+        )
         self.status_bar.pack(side=BOTTOM, fill=X)
+
+        # Configure ttk styles
+        style = ttk.Style()
+        style.configure('Modern.TEntry',
+                       fieldbackground='#2d2d2d',
+                       foreground='#00ff99',
+                       insertcolor='#00ff99')
 
     def create_icon_button(self, icon_path):
         try:

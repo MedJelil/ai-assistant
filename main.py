@@ -6,227 +6,367 @@ import webbrowser
 import wikipedia
 import wolframalpha
 import keyboard
-
-
-# Load credentials
-import os
-from dotenv import load_dotenv
-load_dotenv()
-
-# Google TTS
-import google.cloud.texttospeech as tts
+import threading
 import pygame
 import time
+import os
+from tkinter import *
+from tkinter import ttk, scrolledtext, messagebox, simpledialog
+from PIL import Image, ImageTk
+from dotenv import load_dotenv
+import google.cloud.texttospeech as tts
 
-### PARAMETERS ###
-activationWords = ['computer', 'calcutron', 'shodan', 'showdown']
-tts_type = 'local' # google or local
+# Load environment variables
+load_dotenv()
 
-# Local speech engine initialisation
-engine = pyttsx3.init()
-voices = engine.getProperty('voices')
-engine.setProperty('voice', voices[1].id) # 0 = male, 1 = female
+class ModernButton(Button):
+    def __init__(self, master=None, **kwargs):
+        super().__init__(master, **kwargs)
+        self.config(
+            bg='#2d2d2d',
+            fg='#00ff99',
+            activebackground='#404040',
+            activeforeground='#00ff99',
+            relief=FLAT,
+            font=('Helvetica', 10, 'bold'),
+            padx=15,
+            pady=5
+        )
+        self.bind('<Enter>', self.on_enter)
+        self.bind('<Leave>', self.on_leave)
 
-# Google TTS client
-def google_text_to_wav(voice_name: str, text: str):
-    language_code = "-".join(voice_name.split("-")[:2])
+    def on_enter(self, e):
+        self.config(background='#404040')
 
-    # Set the text input to be synthesized
-    text_input = tts.SynthesisInput(text=text)
+    def on_leave(self, e):
+        self.config(background='#2d2d2d')
 
-    # Build the voice request, select the language code ("en-US") and the voice name
-    voice_params = tts.VoiceSelectionParams(
-        language_code=language_code, name=voice_name
-    )
+class VoiceAssistantGUI:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("JELIL - Voice Assistant")
+        self.root.geometry("1000x700")
+        self.root.configure(bg='#1a1a1a')
+        
+        # Configuration
+        self.activation_words = ['computer', 'Jelil', 'shodan', 'showdown']
+        self.tts_type = 'local'
+        self.appId = '5R49J7-J888YX9J2V'
+        self.wolframClient = wolframalpha.Client(self.appId)
+        
+        # Initialize components
+        self.setup_tts()
+        self.setup_browser()
+        self.create_widgets()
+        self.update_status("All systems nominal")
+        
+        # State variables
+        self.listening = False
+        self.is_speaking = False
 
-    # Select the type of audio file you want returned
-    audio_config = tts.AudioConfig(audio_encoding=tts.AudioEncoding.LINEAR16)
+    def setup_tts(self):
+        self.engine = pyttsx3.init()
+        voices = self.engine.getProperty('voices')
+        self.engine.setProperty('voice', voices[1].id)
+        self.engine.setProperty('rate', 150)
+        
+    def setup_browser(self):
+        firefox_path = r"C:\Program Files\Mozilla Firefox\firefox.exe"
+        webbrowser.register('firefox', None, webbrowser.BackgroundBrowser(firefox_path))
 
-    client = tts.TextToSpeechClient()
-    response = client.synthesize_speech(
-        input=text_input, voice=voice_params, audio_config=audio_config
-    )
+    def create_widgets(self):
+        # Main container with gradient effect
+        main_frame = Frame(self.root, bg='#1a1a1a')
+        main_frame.pack(expand=True, fill=BOTH, padx=20, pady=20)
 
-    return response.audio_content
-
-# Configure browser
-# Set the path
-firefox_path = r"C:\Program Files\Mozilla Firefox\firefox.exe"
-# Register the browser
-webbrowser.register('firefox', None, 
-                    webbrowser.BackgroundBrowser(firefox_path))
-
-# Wolfram Alpha client
-appId = '5R49J7-J888YX9J2V'
-wolframClient = wolframalpha.Client(appId)
-
-def speak(text, rate = 120):
-    time.sleep(0.3)
-    try:     
-        if tts_type == 'local':
-            engine.setProperty('rate', rate) 
-            engine.say(text, 'txt')
-            engine.runAndWait()
-        if tts_type == 'google':
-            speech = google_text_to_wav('en-US-News-K', text)
-            pygame.mixer.init()
-            speech_sound = pygame.mixer.Sound(speech)
-            speech_length = int(math.ceil(pygame.mixer.Sound.get_length(speech_sound)))
-            speech_sound.play()
-            time.sleep(speech_length)
-            pygame.mixer.quit()
- 
-    ## The standard keyboard interrupt is Ctrl+C. This interrupts the Google speech synthesis.
-    except KeyboardInterrupt:
+        # Header with modern design
+        header_frame = Frame(main_frame, bg='#1a1a1a')
+        header_frame.pack(fill=X, pady=(0, 20))
+        
         try:
-            if tts_type == 'google':
-                pygame.mixer.quit()
-        except:
+            self.logo_img = ImageTk.PhotoImage(Image.open("./assets/ai_icon.png").resize((80,80)))
+            logo_label = Label(header_frame, image=self.logo_img, bg='#1a1a1a')
+            logo_label.pack(side=LEFT, padx=10)
+        except FileNotFoundError:
             pass
-        return
+        
+        title_frame = Frame(header_frame, bg='#1a1a1a')
+        title_frame.pack(side=LEFT, padx=10)
+        
+        Label(title_frame, text="JELIL", font=('Impact', 36), 
+             fg='#00ff99', bg='#1a1a1a').pack(side=LEFT)
+        
+        Label(title_frame, text="AI Assistant", font=('Helvetica', 14),
+             fg='#888888', bg='#1a1a1a').pack(side=LEFT, padx=10)
 
+        # Conversation history with modern styling
+        history_frame = Frame(main_frame, bg='#2d2d2d', padx=10, pady=10)
+        history_frame.pack(expand=True, fill=BOTH, pady=(0, 20))
+        
+        self.history_text = scrolledtext.ScrolledText(
+            history_frame,
+            wrap=WORD,
+            font=('Consolas', 12),
+            bg='#1a1a1a',
+            fg='#00ff99',
+            insertbackground='white',
+            padx=10,
+            pady=10
+        )
+        self.history_text.pack(expand=True, fill=BOTH)
+        self.history_text.configure(state='disabled')
 
-def parseCommand():
-    # with noalsaerr():
-        listener = sr.Recognizer()
-        print('Listening for a command')
+        # Controls with modern design
+        control_frame = Frame(main_frame, bg='#1a1a1a')
+        control_frame.pack(fill=X, pady=10)
+        
+        # Microphone button with modern styling
+        self.mic_img = self.create_icon_button("./assets/mic_icon.png")
+        self.mic_btn = ModernButton(
+            control_frame,
+            image=self.mic_img,
+            command=self.toggle_listening,
+            width=40,
+            height=40
+        )
+        self.mic_btn.pack(side=LEFT, padx=5)
 
-        with sr.Microphone() as source:
-            listener.pause_threshold = 2
-            input_speech = listener.listen(source)
+        # Modern entry field
+        entry_frame = Frame(control_frame, bg='#1a1a1a')
+        entry_frame.pack(side=LEFT, expand=True, fill=X, padx=5)
+        
+        self.input_entry = ttk.Entry(
+            entry_frame,
+            width=50,
+            font=('Helvetica', 12),
+            style='Modern.TEntry'
+        )
+        self.input_entry.pack(side=LEFT, expand=True, fill=X)
+        self.input_entry.bind('<Return>', self.process_text_input)
 
+        # Send button with modern styling
+        send_btn = ModernButton(
+            control_frame,
+            text="Send",
+            command=self.process_text_input
+        )
+        send_btn.pack(side=LEFT, padx=5)
+
+        # Status bar with modern design
+        self.status_bar = Label(
+            self.root,
+            text="Ready",
+            bd=0,
+            relief=FLAT,
+            anchor=W,
+            fg='#00ff99',
+            bg='#2d2d2d',
+            font=('Helvetica', 10),
+            padx=10,
+            pady=5
+        )
+        self.status_bar.pack(side=BOTTOM, fill=X)
+
+        # Configure ttk styles
+        style = ttk.Style()
+        style.configure('Modern.TEntry',
+                       fieldbackground='#2d2d2d',
+                       foreground='#00ff99',
+                       insertcolor='#00ff99')
+
+    def create_icon_button(self, icon_path):
         try:
-            print('Recognizing speech...')
-            query = listener.recognize_google(input_speech, language='en_gb')
-            print(f'The input speech was: {query}')
+            img = Image.open(icon_path).resize((30,30))
+            return ImageTk.PhotoImage(img)
+        except FileNotFoundError:
+            return ImageTk.PhotoImage(Image.new('RGB', (30,30), color='#2d2d2d'))
 
-        except Exception as exception:
-            print('I did not quite catch that')
-            print(exception)
+    def update_status(self, message):
+        self.status_bar.config(text=message)
+        self.root.update()
 
-            return 'None'
-
-        return query
-
-def search_wikipedia(keyword=''):
-    searchResults = wikipedia.search(keyword)
-    if not searchResults:
-        return 'No result received'
-    try: 
-        wikiPage = wikipedia.page(searchResults[0]) 
-    except wikipedia.DisambiguationError as error:
-        wikiPage = wikipedia.page(error.options[0])
-    print(wikiPage.title)
-    wikiSummary = str(wikiPage.summary)
-    return wikiSummary
-
-def listOrDict(var):
-    if isinstance(var, list):
-        return var[0]['plaintext']
-    else:
-        return var['plaintext']
-
-def search_wolframalpha(keyword=''):
-    response = wolframClient.query(keyword)
-  
-    # @success: Wolfram Alpha was able to resolve the query
-    # @numpods: Number of results returned
-    # pod: List of results. This can also contain subpods
-
-    # Query not resolved
-    if response['@success'] == 'false':
-        speak('I could not compute')
-    # Query resolved
-    else: 
-        result = ''
-        # Question
-        pod0 = response['pod'][0]
-        # May contain answer (Has highest confidence value) 
-        # if it's primary or has the title of result or definition, then it's the official result
-        pod1 = response['pod'][1]
-        if (('result') in pod1['@title'].lower()) or (pod1.get('@primary', 'false') == 'true') or ('definition' in pod1['@title'].lower()):
-            # Get the result
-            result = listOrDict(pod1['subpod'])
-            # Remove bracketed section
-            return result.split('(')[0]
+    def toggle_listening(self):
+        if not self.listening:
+            self.listening = True
+            self.mic_btn.config(bg='#cc0000', activebackground='#ff4444')
+            threading.Thread(target=self.process_voice_input, daemon=True).start()
         else:
-            # Get the interpretation from pod0
-            question = listOrDict(pod0['subpod'])
-            # Remove bracketed section
-            question = question.split('(')[0]
-            # Could search wiki instead here? 
-            return question
+            self.listening = False
+            self.mic_btn.config(bg='#2d2d2d', activebackground='#404040')
 
+    def process_voice_input(self):
+        self.update_history("System", "Listening...", "#0099ff")
+        query = self.recognize_speech()
+        # Update GUI state after processing
+        self.root.after(0, self.set_listening_false)
+        if query:
+            self.root.after(0, self.update_history, "User", query, "#00ff99")
+            self.root.after(0, self.process_command, query.lower().split())
 
-# Main loop
-if __name__ == '__main__': 
-    speak('All systems nominal.', 120)
+    def set_listening_false(self):
+        self.listening = False
+        self.mic_btn.config(bg='#2d2d2d', activebackground='#404040')
 
-    while True:
-        # Parse as a list
-        # query = 'computer say hello'.split()
-        query = parseCommand().lower().split()
+    def process_text_input(self, event=None):
+        text = self.input_entry.get()
+        if text:
+            self.input_entry.delete(0, END)
+            self.update_history("User", text, "#00ff99")
+            self.process_command(text.lower().split())
 
-        if query[0] in activationWords and len(query) > 1:
-            query.pop(0)
+    def recognize_speech(self):
+        recognizer = sr.Recognizer()
+        with sr.Microphone() as source:
+            recognizer.adjust_for_ambient_noise(source)
+            audio = None
+            while self.listening:
+                try:
+                    # Listen for a short duration to allow checking the listening state
+                    audio = recognizer.listen(source, timeout=0.5, phrase_time_limit=5)
+                    break  # Exit loop if audio captured
+                except sr.WaitTimeoutError:
+                    continue  # Continue listening while self.listening is True
+            if audio:
+                try:
+                    return recognizer.recognize_google(audio, language='en_gb')
+                except sr.UnknownValueError:
+                    self.update_history("System", "Could not understand audio", "#ff4444")
+                except sr.RequestError as e:
+                    self.update_history("System", f"Recognition error: {e}", "#ff4444")
+            return None
 
-            # Set commands
+    def update_history(self, sender, message, color):
+        self.history_text.configure(state='normal')
+        self.history_text.insert(END, f"{sender}: ", (sender, color))
+        self.history_text.insert(END, f"{message}\n")
+        self.history_text.tag_config(sender, foreground=color)
+        self.history_text.configure(state='disabled')
+        self.history_text.see(END)
+        self.root.update()
+
+    def speak(self, text, rate=120):
+        self.update_history("Assistant", text, "#0099ff")
+        if self.tts_type == 'local':
+            self.engine.setProperty('rate', rate)
+            self.engine.say(text)
+            self.engine.runAndWait()
+        elif self.tts_type == 'google':
+            self.google_tts(text)
+
+    def google_tts(self, text):
+        try:
+            audio_content = google_text_to_wav('en-US-News-K', text)
+            pygame.mixer.init()
+            sound = pygame.mixer.Sound(audio_content)
+            sound.play()
+            while pygame.mixer.get_busy():
+                time.sleep(0.1)
+            pygame.mixer.quit()
+        except Exception as e:
+            self.update_history("System", f"TTS Error: {e}", "#ff4444")
+
+    def process_command(self, query):
+        try:
+            if not query:
+                return
+
+            if query[0] in self.activation_words and len(query) > 1:
+                query.pop(0)
+
             if query[0] == 'say':
-                if 'hello' in query:
-                    speak('Greetings, all!')
-                else:
-                    query.pop(0) # Remove 'say'
-                    speech = ' '.join(query) 
-                    speak(speech)
+                self.speak(' '.join(query[1:]))
 
-            # Navigation
-            if query[0] == 'go' and query[1] == 'to':
-                speak('Opening... ')
-                # Get the URL part
-                raw_url = ' '.join(query[2:])
-                
-                # Add URL scheme if missing
-                if not raw_url.startswith(('http://', 'https://')):
-                    url = f'https://{raw_url.replace(" ", "")}'  # Remove spaces and add HTTPS
-                else:
-                    url = raw_url
-                
-                # Common domain corrections
-                url = url.replace(".org", ".com")  # Fix w3school.org → w3schools.com
-                url = url.replace(" ", "-")  # Handle spaces in names
-                
-                try:
-                    webbrowser.get('firefox').open_new(url)
-                except Exception as e:
-                    speak(f"Failed to open {raw_url}")
+            elif query[0] == 'go' and query[1] == 'to':
+                self.open_website(' '.join(query[2:]))
 
-            # Wikipedia
-            if query[0] == 'wikipedia':
-                query = ' '.join(query[1:])
-                speak('Querying the universal databank')
-                time.sleep(2)
-                speak(search_wikipedia(query))
+            elif query[0] == 'wikipedia':
+                self.search_wikipedia(' '.join(query[1:]))
 
-            # Wolfram Alpha
-            if query[0] == 'compute' or query[0] == 'computer':
-                query = ' '.join(query[1:])
-                try:
-                    result = search_wolframalpha(query)
-                    speak(result)
-                except:
-                    speak('Unable to compute')
+            elif query[0] in ('compute', 'computer'):
+                self.wolfram_alpha_query(' '.join(query[1:]))
 
-            # Note taking
-            if query[0] == 'log':
-                speak('Ready to record your note')
-                newNote = parseCommand().lower()
-                now = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-                with open('note_%s.txt' % now, 'w') as newFile:
-                    newFile.write(now)
-                    newFile.write(' ')
-                    newFile.write(newNote)
-                speak('Note written')
+            elif query[0] == 'log':
+                self.create_note()
 
-            if query[0] == 'exit':
-                speak('Goodbye')
-                break
+            elif query[0] == 'exit':
+                self.root.destroy()
+
+        except Exception as e:
+            self.update_history("System", f"Command error: {e}", "#ff4444")
+
+    def open_website(self, url):
+        try:
+            if not url.startswith(('http://', 'https://')):
+                url = f'https://{url.replace(" ", "")}'
+            url = url.replace(".org", ".com").replace(" ", "-")
+            webbrowser.get('firefox').open_new(url)
+            self.speak(f"Opening {url}")
+        except Exception as e:
+            self.speak(f"Failed to open {url}")
+            self.update_history("System", f"Browser error: {e}", "#ff4444")
+
+    def search_wikipedia(self, query):
+        try:
+            self.update_status("Searching Wikipedia...")
+            result = wikipedia.summary(query, sentences=3)
+            self.speak(result)
+        except Exception as e:
+            self.speak("No Wikipedia results found")
+            self.update_history("System", f"Wikipedia error: {e}", "#ff4444")
+
+    def wolfram_alpha_query(self, query):
+        try:
+            res = self.wolframClient.query(query)
+            if res['@success'] == 'false':
+                self.speak("Unable to compute")
+            else:
+                result = next(res.results).text
+                self.speak(result)
+        except Exception as e:
+            self.speak("Computation failed")
+            self.update_history("System", f"Wolfram error: {e}", "#ff4444")
+
+    def create_note(self):
+        try:
+            # Ask user if they want to type or speak
+            response = messagebox.askyesno("Note Type", "Type note instead of speaking?")
+            
+            if response:  # Text input
+                note = simpledialog.askstring("Text Note", "Enter your note:")
+                if not note:
+                    return
+            else:  # Voice input
+                self.speak("Ready to record your note")
+                note = self.recognize_speech()
+
+            if note:
+                os.makedirs("notes", exist_ok=True)
+                filename = f"notes/note_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                with open(filename, 'w') as f:
+                    f.write(note)
+                self.speak("Note saved successfully")
+                self.update_history("System", f"Note saved to {filename}", "#00ff99")
+            else:
+                self.speak("No note content detected")
+
+        except Exception as e:
+            self.update_history("System", f"Note error: {str(e)}", "#ff4444")
+            self.speak("Failed to save note")
+    
+
+def google_text_to_wav(voice_name: str, text: str):
+    client = tts.TextToSpeechClient()
+    input_text = tts.SynthesisInput(text=text)
+    voice_params = tts.VoiceSelectionParams(
+        language_code="-".join(voice_name.split("-")[:2]),
+        name=voice_name
+    )
+    audio_config = tts.AudioConfig(audio_encoding=tts.AudioEncoding.LINEAR16)
+    return client.synthesize_speech(
+        input=input_text, voice=voice_params, audio_config=audio_config
+    ).audio_content
+
+if __name__ == '__main__':
+    root = Tk()
+    gui = VoiceAssistantGUI(root)
+    root.mainloop()

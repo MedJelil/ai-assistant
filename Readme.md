@@ -1,24 +1,26 @@
 # JELIL Voice Assistant
 
-A modern, feature-rich voice assistant with a graphical user interface.
+A modern, feature-rich voice assistant with a graphical user interface, built with Python and Tkinter.
 
 ## Features
 
-- Voice command recognition
-- Text-to-speech output
-- Web browsing
+- Voice command recognition using SpeechRecognition
+- Text-to-speech output using pyttsx3 and Google Cloud TTS
+- Web browsing capabilities
 - Wikipedia searches
 - Mathematical computations using Wolfram Alpha
-- Note-taking capability
-- Modern GUI interface
+- Note-taking functionality
+- Modern GUI interface with custom styling
 - Support for both voice and text input
+- Google search integration
+- Real-time status updates and command history
 
 ## Requirements
 
 - Python 3.8 or higher
+- Windows OS (for optimal compatibility)
 - Firefox browser (for web browsing)
-- Wolfram Alpha API key (optional, for computations)
-- Google Cloud credentials (optional, for cloud TTS)
+- Wolfram Alpha API key (for computations)
 
 ## Installation
 
@@ -33,7 +35,7 @@ cd jelil-voice-assistant
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+.venv\Scripts\activate  # On Windows
 ```
 
 3. Install dependencies:
@@ -64,7 +66,8 @@ python main.py
 - `say [text]`: Make the assistant speak the specified text
 - `go to [website]`: Open a website in Firefox
 - `wikipedia [query]`: Search Wikipedia for information
-- `compute [expression]`: Calculate mathematical expressions
+- `compute [expression]`: Calculate mathematical expressions using Wolfram Alpha
+- `google [query]`: Perform a Google search
 - `log [note]`: Create a new note
 - `exit`: Close the application
 
@@ -74,22 +77,28 @@ The assistant responds to the following activation words:
 
 - "computer"
 - "Jelil"
-- "shodan"
-- "showdown"
 
 ## Project Structure
 
-- `main.py`: Application entry point
-- `config.py`: Configuration settings
-- `speech_handler.py`: Speech recognition and TTS functionality
-- `command_processor.py`: Command processing logic
-- `gui.py`: Graphical user interface
+- `main.py`: Application entry point and core functionality
+- `requirements.txt`: Project dependencies
+- `.env`: Environment variables and API keys
 - `assets/`: Directory for images and other assets
 - `notes/`: Directory for saved notes
+- `docker-compose.yml`: Docker configuration (if using containerization)
 
-## Logging
+## Dependencies
 
-Logs are saved to `voice_assistant.log` in the project root directory.
+Key dependencies include:
+
+- SpeechRecognition: For voice input processing
+- pyttsx3: For text-to-speech functionality
+- wolframalpha: For mathematical computations
+- wikipedia: For Wikipedia searches
+- google-cloud-texttospeech: For cloud-based TTS
+- tkinter: For the GUI interface
+- pygame: For audio handling
+- PIL: For image processing
 
 ## Contributing
 
